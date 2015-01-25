@@ -6,12 +6,14 @@ var net    = require('net'),
 exports.register = function () {
     var plugin = this;
     plugin.inherits('auth/auth_base');
+    plugin.load_vpop_ini();
+};
 
-    var load_config = function () {
-        plugin.loginfo("loading auth_vpopmaild.ini");
-        plugin.cfg = plugin.config.get('auth_vpopmaild.ini', load_config);
-    };
-    load_config();
+exports.load_vpop_ini = function () {
+    var plugin = this;
+    plugin.cfg = plugin.config.get('auth_vpopmaild.ini', function () {
+        plugin.load_vpop_ini();
+    });
 };
 
 exports.hook_capabilities = function (next, connection) {
@@ -140,7 +142,14 @@ exports.get_plain_passwd = function (user, cb) {
             socket.end();             // disconnect
         }
         if (chunk_count > 2) {
-            if (!/clear_text_password/.test(chunk)) { return; }
+            if (/^\-ERR/.test(chunk)) {
+                plugin.logerror("get_plain failed: " + chunk);
+                socket.end();         // disconnect
+                return;
+            }
+            if (!/clear_text_password/.test(chunk)) {
+                return;   // pass might be in the next chunk
+            }
             var pass = chunk.match(/clear_text_password\s(\S+)\s/);
             plain_pass = pass[1];
             socket.write("quit\n\r");

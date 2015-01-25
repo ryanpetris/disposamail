@@ -9,33 +9,40 @@ SPF.prototype.log_debug = function (str) {
     return plugin.logdebug(str);
 };
 
-exports.refresh_config = function () {
+exports.register = function () {
     var plugin = this;
+
+    plugin.load_config();
+};
+
+exports.load_config = function () {
     plugin.cfg = plugin.config.get('spf.ini', {
-        booleans: [
-            '-defer.helo_temperror',
-            '-defer.mfrom_temperror',
+            booleans: [
+                '-defer.helo_temperror',
+                '-defer.mfrom_temperror',
 
-            '-defer_relay.helo_temperror',
-            '-defer_relay.mfrom_temperror',
+                '-defer_relay.helo_temperror',
+                '-defer_relay.mfrom_temperror',
 
-            '-deny.helo_softfail',
-            '-deny.helo_fail',
-            '-deny.helo_permerror',
+                '-deny.helo_softfail',
+                '-deny.helo_fail',
+                '-deny.helo_permerror',
 
-            '-deny.mfrom_softfail',
-            '-deny.mfrom_fail',
-            '-deny.mfrom_permerror',
+                '-deny.mfrom_softfail',
+                '-deny.mfrom_fail',
+                '-deny.mfrom_permerror',
 
-            '-deny_relay.helo_softfail',
-            '-deny_relay.helo_fail',
-            '-deny_relay.helo_permerror',
+                '-deny_relay.helo_softfail',
+                '-deny_relay.helo_fail',
+                '-deny_relay.helo_permerror',
 
-            '-deny_relay.mfrom_softfail',
-            '-deny_relay.mfrom_fail',
-            '-deny_relay.mfrom_permerror',
-        ]
-    });
+                '-deny_relay.mfrom_softfail',
+                '-deny_relay.mfrom_fail',
+                '-deny_relay.mfrom_permerror',
+            ]
+        },
+        function () { plugin.load_config(); }
+    );
 
     // when set, preserve legacy config settings
     ['helo','mail'].forEach(function (phase) {
@@ -60,7 +67,6 @@ exports.refresh_config = function () {
 
 exports.hook_helo = exports.hook_ehlo = function (next, connection, helo) {
     var plugin = this;
-    plugin.refresh_config();
 
     // Bypass private IPs
     if (net_utils.is_rfc1918(connection.remote_ip)) { return next(); }

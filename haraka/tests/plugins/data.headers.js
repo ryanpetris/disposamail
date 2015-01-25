@@ -1,46 +1,37 @@
+'use strict';
 
-var stub         = require('../fixtures/stub'),
-    Plugin       = require('../fixtures/stub_plugin'),
-    Connection   = require('../fixtures/stub_connection'),
-    Address      = require('../../address'),
-    configfile   = require('../../configfile'),
-    config       = require('../../config'),
-    Header       = require('../../mailheader').Header,
-    ResultStore  = require("../../result_store");
+var Plugin       = require('../fixtures/stub_plugin');
+var Connection   = require('../fixtures/stub_connection');
+var Address      = require('../../address');
+var config       = require('../../config');
+var Header       = require('../../mailheader').Header;
+var ResultStore  = require("../../result_store");
 
-function _set_up(callback) {
-    this.backup = {};
+var _set_up = function (done) {
 
-    // needed for tests
-    this.plugin = Plugin('data.headers');
-    this.plugin.name = 'data.headers';  // TODO: delete after PR#495 merged
+    this.plugin = new Plugin('data.headers');
     this.plugin.config = config;
-    this.plugin.refresh_config(function(){ return; });
+
+    this.plugin.register();
+
     try {
         this.plugin.addrparser = require('address-rfc2822');
     }
-    catch (e) {
-    }
+    catch (ignore) {}
 
-    // stub out functions
     this.connection = Connection.createConnection();
-    this.connection.results = new ResultStore(this.connection);
+
     this.connection.transaction = {
         header: new Header(),
         results: new ResultStore(this.plugin),
+        rcpt_to: [],
     };
-    this.connection.notes = {};
 
-    callback();
-}
-
-function _tear_down(callback) {
-    callback();
-}
+    done();
+};
 
 exports.invalid_date = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'none': function (test) {
         test.expect(0);
         test.done();
@@ -49,7 +40,6 @@ exports.invalid_date = {
 
 exports.user_agent = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'none': function (test) {
         test.expect(2);
         var outer = this;
@@ -92,7 +82,6 @@ exports.user_agent = {
 
 exports.direct_to_mx = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'auth user': function (test) {
         test.expect(3);
         this.connection.notes.auth_user = 'test@example.com';
@@ -151,7 +140,6 @@ exports.direct_to_mx = {
 
 exports.from_match = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'match bare': function (test) {
         test.expect(1);
         var outer = this;
@@ -208,7 +196,6 @@ exports.from_match = {
 
 exports.mailing_list = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'ezmlm true': function (test) {
         test.expect(2);
         var outer = this;
@@ -294,5 +281,68 @@ exports.mailing_list = {
         this.connection.transaction.header.add_end('X-Google-Loop', "blah-blah whatcha");
         this.plugin.mailing_list(next_cb, this.connection);
         test.done();
+    },
+};
+
+exports.delivered_to = {
+    setUp : _set_up,
+    'disabled': function (test) {
+        test.expect(2);
+        var next_cb = function(res, msg) {
+            test.equal(undefined, res);
+            test.equal(undefined, msg);
+            test.done();
+        }.bind(this);
+        this.plugin.cfg.check.delivered_to=false;
+        this.plugin.delivered_to(next_cb, this.connection);
+    },
+    'header not present': function (test) {
+        test.expect(2);
+        var next_cb = function(res, msg) {
+            test.equal(undefined, res);
+            test.equal(undefined, msg);
+            test.done();
+        }.bind(this);
+        this.plugin.cfg.check.delivered_to=true;
+        this.plugin.delivered_to(next_cb, this.connection);
+    },
+    'no recipient match': function (test) {
+        test.expect(2);
+        var next_cb = function(res, msg) {
+            test.equal(undefined, res);
+            test.equal(undefined, msg);
+            test.done();
+        }.bind(this);
+        this.plugin.cfg.check.delivered_to=true;
+        // this.connection.transaction.mail_from = new Address.Address('<test@example.com>');
+        this.connection.transaction.header.add_end('Delivered-To', "user@example.com");
+        this.plugin.delivered_to(next_cb, this.connection);
+    },
+    'recipient match': function (test) {
+        test.expect(2);
+        var next_cb = function(res, msg) {
+            test.equal(DENY, res);
+            test.equal('Invalid Delivered-To header content', msg);
+            test.done();
+        }.bind(this);
+        this.plugin.cfg.check.delivered_to=true;
+        // this.connection.transaction.mail_from = new Address.Address('<test@example.com>');
+        this.connection.transaction.header.add_end('Delivered-To', "user@example.com");
+        this.connection.transaction.rcpt_to.push(new Address.Address('user@example.com'));
+        this.plugin.delivered_to(next_cb, this.connection);
+    },
+    'recipient match, reject disabled': function (test) {
+        test.expect(2);
+        var next_cb = function(res, msg) {
+            test.equal(undefined, res);
+            test.equal(undefined, msg);
+            test.done();
+        }.bind(this);
+        this.plugin.cfg.check.delivered_to=true;
+        this.plugin.cfg.reject.delivered_to=false;
+        // this.connection.transaction.mail_from = new Address.Address('<test@example.com>');
+        this.connection.transaction.header.add_end('Delivered-To', "user@example.com");
+        this.connection.transaction.rcpt_to.push(new Address.Address('user@example.com'));
+        this.plugin.delivered_to(next_cb, this.connection);
     },
 };

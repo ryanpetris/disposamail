@@ -20,35 +20,46 @@ process with the SIGHUP signal (via the `kill` command line tool).
 Outbound Configuration Files
 ----------------------------
 
-### outbound.concurrency\_max
+### outbound.ini
+
+* `disabled`
+
+Default: false. Allows one to temporarily disable outbound delivery, while
+still receiving and queuing emails. This can be changed while Haraka is
+running.
+
+* `concurrency_max`
 
 Default: 100. Specifies the maximum concurrent connections to make. Note that
 if using cluster (multiple CPUs) then this will be multiplied by the number
 of CPUs that you have.
 
-### outbound.enable\_tls
+* `enable_tls`
 
-Default: 0. Put a "1" in this file to enable TLS for outbound mail when the
-remote end is capable of receiving TLS connections.
+Default: false. Switch to true to enable TLS for outbound mail when the
+remote end is capable.
 
 This uses the same `tls_key.pem` and `tls_cert.pem` files that the `tls`
-plugin uses. See the plugin documentation for information on generating those
+plugin uses. See the [tls plugin
+docs](http://haraka.github.io/manual/plugins/tls.html) for information on generating those
 files.
+
+* `ipv6_enabled`
+
+When this has a "true" value inside (usually a `1`), it defaults to an 'AAAA'
+lookup first for each MX record, and uses those hosts to send email via.
+
+* `always_split`
+
+Default: false. By default, Haraka groups message recipients by domain so that
+messages with multiple recipients at the same domain get sent in a single SMTP
+session. When `always_split` is enabled, each recipient gets a queue entry and
+delivery in its own SMTP session. This carries a performance penalty but
+enables more flexibility in mail delivery and bounce handling.
 
 ### outbound.bounce\_message
 
 See "Bounce Messages" below for details.
-
-### outbound.disabled
-
-Allows you to temporarily disable outbound delivery, while still able to
-receive and queue emails. This can be done while Haraka is running due to
-how Haraka watches for config file changes.
-
-### outbound.ipv6_enabled
-
-When this has a "true" value inside (usually a `1`), it defaults to an 'AAAA'
-lookup first for each MX record, and uses those hosts to send email via.
 
 Outbound Mail Hooks
 -------------------
@@ -129,13 +140,11 @@ email then you can return `OK` from this hook to stop it from sending a bounce m
 
 Parameters: `next, hmail, params`
 
-Params is a list of: `[host, ip, response, delay, port, mode, ok_recips]`
+Params is a list of: `[host, ip, response, delay, port, mode, ok_recips, secured]`
 
 When mails are successfully delivered to the remote end then the `delivered`
 hook is called. The return codes from this hook have no effect, so it is only
 useful for logging the fact that a successful delivery occurred.
-This hook is called with `(hmail, [host, ip, response, delay, port, mode, recipients])` 
-as parameters:
  
 * `host` - Hostname of the MX that the message was delivered to,
 * `ip` - IP address of the host that the message was delivered to,
@@ -145,8 +154,33 @@ that received the message and will typically contain the remote queue ID and
 message being delivered.
 * `port` - Port number that the message was delivered to.
 * `mode` - Shows whether SMTP or LMTP was used to deliver the mail.
-* `recipients` - an Address array containing all of the recipients that were
+* `ok_recips` - an Address array containing all of the recipients that were
 successfully delivered to.
+* `secured` - A boolean denoting if the connection used TLS or not.
+
+Outbound IP address
+-------------------
+
+Normally the OS will decide which IP address will be used for outbound 
+connections using the IP routing table.  
+
+There are instances where you may want to separate outbound traffic on 
+different IP addresses based on sender, domain or some other identifier.  
+To do this, the IP address that you want to use *must* be bound to an 
+interface (or alias) on the local system.
+
+As described above the outbound IP can be set using the `bind` parameter 
+returned my the `get_mx` hook or during the reception of the message you
+can set a transaction note in a plugin to tell Haraka which outbound IP 
+address you would like it to use when it tries to deliver the message:
+
+`````
+connection.transaction.notes.outbound_ip = '1.2.3.4';
+`````
+
+Note: if the `get_mx` hook returns a `bind` parameter, then this will be 
+used in preference to the transaction note.
+
 
 Bounce Messages
 ---------------

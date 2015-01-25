@@ -20,25 +20,25 @@ exports.utils = {
     tearDown : _tear_down,
     'plain ascii should not be encoded' : function (test) {
         test.expect(1);
-        test.equals(utils.encode_qp("quoted printable"), "quoted printable");
+        test.equals(utils.encode_qp('quoted printable'), 'quoted printable');
         test.done();
     },
     '8-bit chars should be encoded' : function (test) {
         test.expect(1);
         test.equals(
             utils.encode_qp(
-                "v\xe5re kj\xe6re norske tegn b\xf8r \xe6res"
+                'v\xe5re kj\xe6re norske tegn b\xf8r \xe6res'
             ),
-            "v=E5re kj=E6re norske tegn b=F8r =E6res");
+            'v=E5re kj=E6re norske tegn b=F8r =E6res');
         test.done();
     },
     'trailing space should be encoded' : function (test) {
         test.expect(5);
-        test.equals(utils.encode_qp("  "), "=20=20");
-        test.equals(utils.encode_qp("\tt\t"), "\tt=09");
+        test.equals(utils.encode_qp('  '), '=20=20');
+        test.equals(utils.encode_qp('\tt\t'), '\tt=09');
         test.equals(
-            utils.encode_qp("test  \ntest\n\t \t \n"),
-            "test=20=20\ntest\n=09=20=09=20\n"
+            utils.encode_qp('test  \ntest\n\t \t \n'),
+            'test=20=20\ntest\n=09=20=09=20\n'
         );
         test.equals(utils.encode_qp("foo \t "), "foo=20=09=20");
         test.equals(utils.encode_qp("foo\t \n \t"), "foo=09=20\n=20=09");
@@ -215,6 +215,40 @@ exports.valid_regexes = {
         var re_list = ['[', '*\.exam.ple','.*\.example.com'];
         test.expect(1);
         test.deepEqual(['.*\.example.com'], utils.valid_regexes(re_list));
+        test.done();
+    },
+};
+
+exports.base64 = {
+    setUp : _set_up,
+    tearDown : _tear_down,
+    'base64': function (test) {
+        test.expect(1);
+        test.equal(utils.base64('matt the tester'), 'bWF0dCB0aGUgdGVzdGVy');
+        test.done();
+    },
+    'unbase64': function (test) {
+        test.expect(1);
+        test.equal(utils.unbase64('bWF0dCB0aGUgdGVzdGVy'), 'matt the tester');
+        test.done();
+    }
+};
+
+exports.to_object = {
+    setUp : _set_up,
+    tearDown : _tear_down,
+    'string': function (test) {
+        test.expect(1);
+        test.deepEqual(utils.to_object('matt,test'),
+                { matt: true, test: true }
+                );
+        test.done();
+    },
+    'array': function (test) {
+        test.expect(1);
+        test.deepEqual(utils.to_object(['matt','test']),
+                { matt: true, test: true }
+                );
         test.done();
     },
 };

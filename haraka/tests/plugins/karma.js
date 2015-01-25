@@ -1,11 +1,10 @@
-var stub             = require('../fixtures/stub'),
-    Connection       = require('../fixtures/stub_connection'),
-    Plugin           = require('../fixtures/stub_plugin'),
-    configfile       = require('../../configfile'),
-    config           = require('../../config'),
-//  Header           = require('../../mailheader').Header,
-    ResultStore      = require("../../result_store"),
-    constants        = require('../../constants');
+'use strict';
+
+var stub             = require('../fixtures/stub');
+var Connection       = require('../fixtures/stub_connection');
+var Plugin           = require('../fixtures/stub_plugin');
+var config           = require('../../config');
+var ResultStore      = require("../../result_store");
 
 try {
     var redis = require('redis');
@@ -15,48 +14,36 @@ catch (e) {
     return;
 }
 
-constants.import(global);
+var _set_up = function (done) {
+    
+    this.plugin = new Plugin('karma');
 
-function _set_up(callback) {
-    this.backup = {};
-
-    // needed for tests
-    this.plugin = Plugin('karma');
     this.plugin.config = config;
     this.plugin.cfg = { main: {} };
-    this.plugin.deny_hooks = ['connect'];
+    this.plugin.deny_hooks = {'connect': true};
     this.plugin.tarpit_hooks = ['connect'];
 
     this.connection = Connection.createConnection();
-    this.connection.results = new ResultStore(this.plugin);
+
     this.connection.transaction = stub;
     this.connection.transaction.results = new ResultStore(this.plugin);
 
-    callback();
-}
-function _tear_down(callback) {
-    callback();
-}
+    done();
+};
 
 exports.karma_init = {
     setUp : _set_up,
-    tearDown : _tear_down,
-    'init': function (test) {
-        test.expect(4);
-        var cb = function (rc) {
-            test.equal(undefined, rc);
-            test.ok(this.plugin.cfg.asn);
-            test.ok(this.plugin.deny_hooks);
-            test.ok(this.plugin.db);
-            test.done();
-        }.bind(this);
-        this.plugin.karma_init(cb);
+    'register': function (test) {
+        test.expect(2);
+        this.plugin.register();
+        test.ok(this.plugin.cfg.asn);
+        test.ok(this.plugin.deny_hooks);
+        test.done();
     },
 };
 
 exports.results_init = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'init, pre': function (test) {
         test.expect(1);
         var r = this.connection.results.get('karma');
@@ -81,9 +68,25 @@ exports.results_init = {
     },
 };
 
+exports.assemble_note_obj = {
+    setUp : _set_up,
+    'no auth fails': function (test) {
+        test.expect(1);
+        var obj = this.plugin.assemble_note_obj(this.connection, 'notes.auth_fails');
+        test.equal(undefined, obj);
+        test.done();
+    },
+    'has auth fails': function (test) {
+        test.expect(1);
+        this.connection.notes.auth_fails=[1,2];
+        var obj = this.plugin.assemble_note_obj(this.connection, 'notes.auth_fails');
+        test.deepEqual([1,2], obj);
+        test.done();
+    },
+};
+
 exports.max_concurrent = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no results': function (test) {
         test.expect(2);
         var cb = function (rc, msg) {
@@ -118,7 +121,6 @@ exports.max_concurrent = {
 
 exports.hook_deny = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no params': function (test) {
         test.expect(1);
         var next = function (rc) {
@@ -141,6 +143,7 @@ exports.hook_deny = {
             test.equal(undefined, rc);
             test.done();
         };
+        this.plugin.deny_exclude_plugins = { access: true };
         this.plugin.hook_deny(next, this.connection, ['','','access','']);
     },
     'pi_hook=rcpt_to': function (test) {
@@ -149,7 +152,9 @@ exports.hook_deny = {
             test.equal(undefined, rc);
             test.done();
         };
-        this.plugin.hook_deny(next, this.connection, ['','','','','','rcpt_to']);
+        this.plugin.deny_exclude_hooks = { rcpt_to: true };
+        this.plugin.hook_deny(next, this.connection,
+                ['','','','','','rcpt_to']);
     },
     'pi_hook=queue': function (test) {
         test.expect(1);
@@ -157,6 +162,7 @@ exports.hook_deny = {
             test.equal(undefined, rc);
             test.done();
         };
+        this.plugin.deny_exclude_hooks = { queue: true };
         this.plugin.hook_deny(next, this.connection, ['','','','','','queue']);
     },
     'denysoft': function (test) {
@@ -171,7 +177,6 @@ exports.hook_deny = {
 
 exports.max_concurrent = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no results': function (test) {
         test.expect(2);
         var next = function (rc, msg) {
@@ -208,7 +213,6 @@ exports.max_concurrent = {
 
 exports.karma_penalty = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no results': function (test) {
         test.expect(2);
         var next = function (rc, msg) {
@@ -245,7 +249,6 @@ exports.karma_penalty = {
 
 exports.get_award_location = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'relaying=false': function (test) {
         test.expect(1);
         this.connection.relaying=false;
@@ -311,7 +314,6 @@ exports.get_award_location = {
 
 exports.get_award_condition = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'geoip.distance': function (test) {
         test.expect(2);
         test.equal(4000, this.plugin.get_award_condition(
@@ -326,7 +328,6 @@ exports.get_award_condition = {
 
 exports.check_awards = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no results': function (test) {
         test.expect(1);
         var r = this.plugin.check_awards(this.connection);
@@ -366,7 +367,6 @@ exports.check_awards = {
 
 exports.apply_tarpit = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'tarpit=false': function (test) {
         test.expect(2);
         var next = function (rc, msg) {
@@ -437,7 +437,6 @@ exports.apply_tarpit = {
 
 exports.should_we_deny = {
     setUp : _set_up,
-    tearDown : _tear_down,
     'no results': function (test) {
         test.expect(2);
         var next = function (rc, msg) {
@@ -486,7 +485,7 @@ exports.should_we_deny = {
             test.done();
         }.bind(this);
         this.plugin.cfg.tarpit = { max: 1, delay: 0 };
-        this.plugin.deny_hooks = ['connect'];
+        this.plugin.deny_hooks = { connect: true};
         this.connection.results.add(this.plugin, { connect: -6 });
         this.plugin.should_we_deny(next, this.connection, 'connect');
     },
@@ -498,9 +497,8 @@ exports.should_we_deny = {
             test.done();
         }.bind(this);
         this.plugin.cfg.tarpit = { max: 1, delay: 0 };
-        this.plugin.deny_hooks = ['helo'];
+        this.plugin.deny_hooks = { helo: true };
         this.connection.results.add(this.plugin, { connect: -6 });
         this.plugin.should_we_deny(next, this.connection, 'connect');
     },
 };
-

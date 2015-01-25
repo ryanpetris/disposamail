@@ -24,12 +24,12 @@ Configuration
     
   * port=PORT
     
-    The port to connect to.
+    The port to connect to. Default: 25
  
   * connect\_timeout=SECONDS
 
     The maximum amount of time to wait when creating a new connection
-    to the host.  Default if unspecified is 30 seconds.
+    to the host.  Default: 30 seconds.
 
   * timeout=SECONDS
     
@@ -39,9 +39,35 @@ Configuration
 
   * max\_connections=NUMBER
    
-    Maximum number of connections to create at any given time.
+    Maximum number of connections at any given time. Default: 1000
 
-  * enable\_tls=[true|yes|1]
+  * enable\_tls=[true]
 
     Enable TLS with the forward host (if supported)
 
+# Per-Domain Configuration
+
+More specific forward routes for domains can be defined. More specific routes
+are only honored for SMTP connections with a single recipient or SMTP
+connections where every recipient is identical.
+
+    # default SMTP host
+    host=1.2.3.4
+
+    [example1.com]
+    host=1.2.3.5
+
+    [example2.com]
+    host=1.2.3.5
+
+    [example3.com]
+    host=1.2.3.6
+
+Messages with a single recipient to example[1-3].com will get delivered
+directly to the specified host. Messages with recipients only in the domains
+example1.com and example2.com will get delivered directly to 1.2.3.5.
+Everything else gets delivered to 1.2.3.4.
+
+See [GitHub Issue #573](https://github.com/baudehlo/Haraka/issues/573) for
+background on the limitations of smtp-forward with recipients in different
+domains.

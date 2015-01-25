@@ -17,7 +17,9 @@ function Transaction() {
     this.rcpt_to = [];
     this.header_lines = [];
     this.data_lines = [];
+    this.attachment_start_hooks = [];
     this.banner = null;
+    this.body_filters = [];
     this.data_bytes = 0;
     this.header_pos = 0;
     this.body = null;
@@ -44,32 +46,64 @@ exports.createTransaction = function(uuid) {
     return t;
 };
 
-Transaction.prototype.add_data = function(line) {
-    if (!this.discard_data) this.message_stream.add_line(line);
-    if (typeof line !== 'string') {
-        line = line.toString('binary');
+Transaction.prototype.ensure_body = function() {
+    var self = this;
+    if (this.body) {
+        return;
     }
-    line = line.replace(/^\./, '').replace(/\r\n$/, '\n');
+
+    this.body = new body.Body(this.header);
+    this.attachment_start_hooks.forEach(function (h) {
+        self.body.on('attachment_start', h);
+    });
+    if (this.banner) {
+        this.body.set_banner(this.banner);
+    }
+    this.body_filters.forEach(function(o) {
+        self.body.add_filter(function(ct, enc, buf) {
+            if ((o.ct_match instanceof RegExp && o.ct_match.test(ct.toLowerCase()))
+                        || ct.toLowerCase().indexOf(String(o.ct_match).toLowerCase()) === 0) {
+                return o.filter(ct, enc, buf);
+            }
+        });
+    });
+};
+
+Transaction.prototype.add_data = function(line) {
+    if (typeof line === 'string') { // This shouldn't ever really happen...
+        line = new Buffer(line);
+    }
     // check if this is the end of headers line  
-    if (this.header_pos === 0 && line[0] === '\n') {
+    if (this.header_pos === 0 && (line[0] === 0x0A || (line[0] === 0x0D && line[1] === 0x0A)) ) {
         this.header.parse(this.header_lines);
         this.header_pos = this.header_lines.length;
         if (this.parse_body) {
-            this.body = this.body || new body.Body(this.header, {"banner": this.banner});
+            this.ensure_body();
         }
     }
     else if (this.header_pos === 0) {
         // Build up headers
         if (this.header_lines.length < MAX_HEADER_LINES) {
-            this.header_lines.push(line);
+            if (line[0] === 0x2E) line = line.slice(1); // Strip leading "."
+            this.header_lines.push(line.toString('binary').replace(/\r\n$/, '\n'));
         }
     }
     else if (this.header_pos && this.parse_body) {
-        this.body.parse_more(line);
+        if (line[0] === 0x2E) line = line.slice(1); // Strip leading "."
+        var new_line = this.body.parse_more(line.toString('binary').replace(/\r\n$/, '\n'));
+        
+        if (!new_line.length) {
+            return; // buffering for banners
+        }
+
+        new_line = new_line.replace(/^\./gm, '..').replace(/\r?\n/gm, '\r\n');
+        line = new Buffer(new_line);
     }
+
+    if (!this.discard_data) this.message_stream.add_line(line);
 };
 
-Transaction.prototype.end_data = function() {
+Transaction.prototype.end_data = function(cb) {
     if (this.header_lines.length && this.header.header_list.length === 0) {
         // Headers not parsed yet - must be a busted email
         // Strategy: Find first blank line, parse up to that as headers. Rest as body.
@@ -86,7 +120,7 @@ Transaction.prototype.end_data = function() {
         this.header.parse(this.header_lines);
         this.header_pos = header_pos;
         if (this.parse_body) {
-            this.body = this.body || new body.Body(this.header, {"banner": this.banner});
+            this.ensure_body();
             for (var i = 0; i < body_lines.length; i++) {
                 this.body.parse_more(body_lines[i]);
             }
@@ -94,7 +128,15 @@ Transaction.prototype.end_data = function() {
     }
     if (this.header_pos && this.parse_body) {
         var data = this.body.parse_end();
+        if (data.length) {
+            data = data.replace(/^\./gm, '..').replace(/\r?\n/gm, '\r\n');
+            var line = new Buffer(data);
+
+            if (!this.discard_data) this.message_stream.add_line(line);
+        }
     }
+
+    this.message_stream.add_line_end(cb);
 }
 
 Transaction.prototype.add_header = function(key, value) {
@@ -119,15 +161,19 @@ Transaction.prototype.remove_header = function (key) {
 
 Transaction.prototype.attachment_hooks = function (start, data, end) {
     this.parse_body = 1;
-    this.body = this.body || new body.Body(this.header, {"banner": this.banner});
-    this.body.on('attachment_start', start);
+    this.attachment_start_hooks.push(start);
 };
 
 Transaction.prototype.set_banner = function (text, html) {
-    throw "transaction.set_banner is currently non-functional";
+    // throw "transaction.set_banner is currently non-functional";
     this.parse_body = true;
     if (!html) {
         html = text.replace(/\n/g, '<br/>\n');
     }
     this.banner = [text, html];
+}
+
+Transaction.prototype.add_body_filter = function (ct_match, filter) {
+    this.parse_body = true;
+    this.body_filters.push({'ct_match': ct_match, 'filter': filter});
 }

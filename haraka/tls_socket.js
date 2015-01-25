@@ -4,12 +4,12 @@
 /*----------------------------------------------------------------------------------------------*/
 
 var tls = require('tls');
+var constants = require('constants');
 var crypto = require('crypto');
 var util = require('util');
 var net = require('net');
 var stream = require('stream');
 var log = require('./logger');
-var SSL_OP_ALL = require('constants').SSL_OP_ALL;
 
 // provides a common socket for attaching
 // and detaching from either main socket, or crypto socket
@@ -170,7 +170,7 @@ function createServer(cb) {
 
         socket.upgrade = function (options, cb) {
             log.logdebug("Upgrading to TLS");
-            
+
             socket.clean();
             cryptoSocket.removeAllListeners('data');
 
@@ -178,11 +178,26 @@ function createServer(cb) {
             // See http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
             if (!options) options = {};
             // TODO: bug in Node means we can't do this until it's fixed
-            // options.secureOptions = SSL_OP_ALL;
-            
+            // options.secureOptions = constants.SSL_OP_ALL;
+
+            // Setting secureProtocol to 'SSLv23_method' and secureOptions to
+            // constants.SSL_OP_NO_SSLv3 are used to disable SSLv2 and SSLv3
+            // protcol support.
+
+            options.secureProtocol = options.secureProtocol || 'SSLv23_method';
+            options.secureOptions  = options.secureOptions  ||
+                constants.SSL_OP_NO_SSLv3;
+
+            var requestCert = true;
+            var rejectUnauthorized = false;
+            if (options) {
+                if (options.requestCert !== undefined) { requestCert = options.requestCert; }
+                if (options.rejectUnauthorized !== undefined) { rejectUnauthorized = options.rejectUnauthorized; }
+            }
             var sslcontext = crypto.createCredentials(options);
 
-            var pair = tls.createSecurePair(sslcontext, true, true, false);
+            // tls.createSecurePair(credentials, isServer, requestCert, rejectUnauthorized)
+            var pair = tls.createSecurePair(sslcontext, true, requestCert, rejectUnauthorized);
 
             var cleartext = pipe(pair, cryptoSocket);
 
@@ -211,7 +226,7 @@ function createServer(cb) {
             cleartext._controlReleased = true;
 
             socket.cleartext = cleartext;
-            
+
             if (socket._timeout) {
                 cleartext.setTimeout(socket._timeout);
             }
@@ -253,7 +268,7 @@ function connect(port, host, cb) {
 
     var socket = new pluggableStream(cryptoSocket);
 
-    socket.upgrade = function (options) {
+    socket.upgrade = function (options, cb) {
         socket.clean();
         cryptoSocket.removeAllListeners('data');
 
@@ -261,16 +276,20 @@ function connect(port, host, cb) {
         // See http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html
         if (!options) options = {};
         // TODO: bug in Node means we can't do this until it's fixed
-        // options.secureOptions = SSL_OP_ALL;
+        // options.secureOptions = constants.SSL_OP_ALL;
+
+        options.secureProtocol = options.secureProtocol || 'SSLv23_method';
+        options.secureOptions  = options.secureOptions  || constants.SSL_OP_NO_SSLv3;
 
         var sslcontext = crypto.createCredentials(options);
 
+        // tls.createSecurePair([credentials], [isServer]);
         var pair = tls.createSecurePair(sslcontext, false);
 
         socket.pair = pair;
 
         var cleartext = pipe(pair, cryptoSocket);
- 
+
         pair.on('error', function(exception) {
             socket.emit('error', exception);
         });
@@ -285,15 +304,19 @@ function connect(port, host, cb) {
             } else {
                 cleartext.authorized = true;
             }
+            var cert = pair.cleartext.getPeerCertificate();
+            if (pair.cleartext.getCipher) {
+                var cipher = pair.cleartext.getCipher();
+            }
 
-            if (cb) cb();
+            if (cb) cb(cleartext.authorized, verifyError, cert, cipher);
 
             socket.emit('secure');
         });
 
         cleartext._controlReleased = true;
         socket.cleartext = cleartext;
-        
+
         if (socket._timeout) {
             cleartext.setTimeout(socket._timeout);
         }
