@@ -2,4 +2,4 @@
 
 "use strict";
 
-require('./Haraka/haraka.js');
+require('Haraka/haraka.js');
