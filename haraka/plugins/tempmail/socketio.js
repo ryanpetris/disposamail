@@ -32,6 +32,34 @@ exports.register = function () {
 
     io.listen(3000);
 }
+exports.hook_rcpt = function(next, connection, params) {
+    var plugin = this;
+    var txn = connection.transaction;
+    if (!txn) { return; }
+
+    var rcpt = params[0];
+
+    // Check for RCPT TO without an @ first - ignore those here
+    if (!rcpt.host) {
+        txn.results.add(plugin, {fail: 'rcpt!domain'});
+        return next();
+    }
+
+    if (!rcpt.user) {
+        txn.results.add(plugin, {fail: 'rcpt!user'});
+        return next();
+    }
+
+    var user = (rcpt.user + '@' + rcpt.host).toLowerCase();
+
+    if (!(user in plugin.clients)) {
+        txn.results.add(plugin, {fail: 'rcpt!user'});
+        return next();
+    }
+
+    txn.results.add(plugin, {pass: 'rcpt_to'});
+    return next(OK);
+};
 
 exports.hook_queue = function (next, connection) {
     var plugin = this;
@@ -40,7 +68,7 @@ exports.hook_queue = function (next, connection) {
     connection.loginfo(plugin, 'Sending message to user.');
 
     for (var i = 0; i < txn.rcpt_to.length; i++) {
-        var rcpt_to = txn.rcpt_to[i].user + '@' + txn.rcpt_to[i].host;
+        var rcpt_to = (txn.rcpt_to[i].user + '@' + txn.rcpt_to[i].host).toLowerCase();
 
         connection.loginfo(plugin, 'Looking for user' + rcpt_to);
 
@@ -50,5 +78,5 @@ exports.hook_queue = function (next, connection) {
         }
     }
 
-    next();
+    return next(OK);
 };

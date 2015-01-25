@@ -25,9 +25,5 @@ mail_from.is_resolvable
 # Disconnect client if they spew bad SMTP commands at us
 max_unrecognized_commands
 
-# Only accept mail for your personal list of hosts. Edit config/host_list
-# NOTE: THIS IS REQUIRED for inbound email.
-rcpt_to.in_host_list
-
 # Queue mail via smtp - see config/smtp_forward.ini for where your mail goes
 tempmail/socketio
