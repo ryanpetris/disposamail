@@ -1,6 +1,7 @@
 var server = require('http').createServer();
-var phonetic = require('phonetic');
 var io = require('socket.io')(server);
+var phonetic = require('phonetic');
+var MailParser = require("mailparser").MailParser;
 
 exports.register = function () {
     var plugin = this;
@@ -32,6 +33,7 @@ exports.register = function () {
 
     io.listen(3000);
 }
+
 exports.hook_rcpt = function(next, connection, params) {
     var plugin = this;
     var txn = connection.transaction;
@@ -39,7 +41,6 @@ exports.hook_rcpt = function(next, connection, params) {
 
     var rcpt = params[0];
 
-    // Check for RCPT TO without an @ first - ignore those here
     if (!rcpt.host) {
         txn.results.add(plugin, {fail: 'rcpt!domain'});
         return next();
@@ -67,16 +68,28 @@ exports.hook_queue = function (next, connection) {
 
     connection.loginfo(plugin, 'Sending message to user.');
 
-    for (var i = 0; i < txn.rcpt_to.length; i++) {
-        var rcpt_to = (txn.rcpt_to[i].user + '@' + txn.rcpt_to[i].host).toLowerCase();
+    txn.message_stream.get_data(function(data) {
+        for (var i = 0; i < txn.rcpt_to.length; i++) {
+            var rcpt_to = (txn.rcpt_to[i].user + '@' + txn.rcpt_to[i].host).toLowerCase();
 
-        connection.loginfo(plugin, 'Looking for user' + rcpt_to);
+            connection.loginfo(plugin, 'Looking for user' + rcpt_to);
 
-        if (rcpt_to in plugin.clients) {
-            connection.loginfo('Sending message to ' + rcpt_to);
-            plugin.clients[rcpt_to].emit('message', txn.message_stream);
+            if (rcpt_to in plugin.clients) {
+                var parser = new MailParser();
+
+                parser.on("end", function(mail_object){
+                    connection.loginfo('Sending message to ' + rcpt_to);
+                    
+                    mail_object.raw = data;
+                    
+                    plugin.clients[rcpt_to].emit('message', mail_object);
+                });
+
+                parser.write(data);
+                parser.end();
+            }
         }
-    }
 
-    return next(OK);
+        next(OK);
+    });
 };
