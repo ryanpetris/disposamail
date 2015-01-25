@@ -1,9 +1,7 @@
 #!/bin/bash
 
-cd ./haraka/
-npm install
-
-cd ../socket.io/
+cd ./Haraka/
 npm install
 
 cd ..
+npm install
