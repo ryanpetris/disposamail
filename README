@@ -1,22 +1,9 @@
-Haraka
+# Disposamail
 
-Congratulations on creating a new installation of Haraka.
+Disposamail is a simple mail server that randomly generates a username and allows mail to be sent to that username _while the user maintains a connection with Disposamail_. Once the user disconnects, that username is released and the server will no longer accept mail for that address. Mail is displayed to the user in their web browser.
 
-This directory contains two key directories for how Haraka will function:
+A public instance of this project is being hosted at [disposamail.net](http://disposamail.net/).
 
- - config
-           This directory contains configuration files for Haraka. The
-           directory contains the default configuration. You probably want
-           to modify some files in here, particularly `smtp.ini`.
- - plugins
-           This directory contains custom plugins which you write to run in
-           Haraka. The plugins which ship with Haraka are still available
-           to use.
- - docs/plugins
-           This directory contains documentation for your plugins.
+## License
 
-Documentation for Haraka is available via `haraka -h <name> where the name
-is either the name of a plugin (without the .js extension) or the name of
-a core Haraka module, such as `Connection` or `Transaction`.
-
-To get documentation on writing a plugin type `haraka -h Plugins`.
+Disposamail is licensed under the GNU Affero General Public License Version 3. A copy of this license is available in the LICENSE file.
