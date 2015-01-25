@@ -25,5 +25,5 @@ mail_from.is_resolvable
 # Disconnect client if they spew bad SMTP commands at us
 max_unrecognized_commands
 
-# Queue mail via smtp - see config/smtp_forward.ini for where your mail goes
-tempmail/socketio
+# Disposamail
+disposamail/socketio

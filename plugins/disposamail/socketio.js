@@ -9,7 +9,7 @@ exports.register = function () {
     plugin.clients = [];
 
     var load_config = function () {
-        plugin.cfg = plugin.config.get('tempmail_socketio.ini', {}, load_config);
+        plugin.cfg = plugin.config.get('disposamail_socketio.ini', {}, load_config);
     };
     load_config();
 
