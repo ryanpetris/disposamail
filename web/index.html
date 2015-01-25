@@ -10,16 +10,51 @@
                 var socket =  io('http://disposamail.net:3000');
                 
                 socket.on('info', function(data) {
-                    console.log(data);
+                    console.log(data)
+
+                    $('#email-address').html(data.address);
                 });
                 
                 socket.on('message', function(data) {
                     console.log(data)
+
+                    var newitem = $('<p></p>');
+                    
+                    newitem.append('<b>From:</b> ' + formatAddress(data.from[0]) + '<br /><br />');
+                    
+                    var newwell = $('<div class="well"><p' + (data.html ? '' : ' style="white-space: pre-wrap;"') + '></p></div>');
+                    newwell.find('p').html(data.html || data.text);
+                    
+                    newitem.append(newwell);
+                    
+                    newitem.insertAfter('#email-header');
                 });
             });
+            
+            function formatAddress(item) {
+                var name = item.name;
+                var address = item.address;
+                
+                if (!name) {
+                    return address;
+                } else {
+                    return name + ' &lt;' + address + '&gt;';
+                }
+            }
         </script>
     </head>
     <body>
-        
+        <div class="container" role="main">
+            <div class="page-header">
+                <h1>Disposamail</h1>
+            </div>
+            <p>
+                <b>Your Email Address:</b>
+                <span id="email-address"></span>
+            </p>
+            <div class="page-header" id="email-header">
+                <h2>Email</h2>
+            </div>
+        </div>
     </body>
 </html>
