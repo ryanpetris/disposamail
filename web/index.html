@@ -22,7 +22,13 @@
 
                     var newitem = $('<p></p>');
                     
-                    newitem.append('<b>From:</b> ' + formatAddress(data.from[0]) + '<br /><br />');
+                    newitem.append('<b>From:</b> ' + formatAddress(data.from[0]) + '<br />');
+                    
+                    if (data.subject) {
+                        newitem.append('<b>Subject:</b> ' + data.subject + '<br />');
+                    }
+                    
+                    newitem.append('<br />');
                     
                     var newwell = $('<div class="well"><p' + (data.html ? '' : ' style="white-space: pre-wrap;"') + '></p></div>');
                     newwell.find('p').html(data.html || data.text);
