@@ -20,22 +20,55 @@
                 socket.on('message', function(data) {
                     console.log(data)
 
-                    var newitem = $('<p></p>');
-                    
-                    newitem.append('<b>From:</b> ' + formatAddress(data.from[0]) + '<br />');
+                    var $newitem = $('<div class="panel panel-primary"></div>');
                     
                     if (data.subject) {
-                        newitem.append('<b>Subject:</b> ' + data.subject + '<br />');
+                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">' + data.subject + ' - From: ' + formatAddress(data.from[0]) + '</h3></div>');
+                    } else {
+                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">' + formatAddress(data.from[0]) + '</h3></div>');
                     }
                     
-                    newitem.append('<br />');
+                    var $newcontent = $('<div class="panel-body"' + (data.html ? '' : ' style="white-space: pre-wrap;"') + '></div>');
+                    $newcontent.html(data.html || data.text);
+                    $newitem.append($newcontent);
+
+                    if(data.attachments && data.attachments.length > 0) {
+                        var $attachments = $('<div class="list-group"></div>');
+
+                        for (var i = 0; i < data.attachments.length; i++) {
+                            var blob = null;
+
+                            try {
+                                blob = new Blob([data.attachments[i].content], {
+                                    type: data.attachments[i].contentType
+                                });
+                            } catch (e) {
+                                var bb = new (window.WebKitBlobBuilder || window.MozBlobBuilder);
+                                bb.append(data.attachments[i].content);
+                                blob = bb.getBlob(data.attachments[i].contentType);
+                            }
+
+                            var $itemattach = $('<a href="#" class="list-group-item">' + data.attachments[i].fileName + '</a>');
+
+                            $itemattach.attr('href', (window.webkitURL || window.URL).createObjectURL(blob));
+                            $itemattach.attr('download', data.attachments[i].fileName);
+
+                            $attachments.append($itemattach);
+                        }
+
+                        $attachments.find('a').on('click', function(event) {
+                            event.stopImmediatePropagation();
+                            event.stopPropagation();
+
+                            window.open($(this).attr('href'));
+
+                            return false;
+                        });
+
+                        $newitem.append($attachments);
+                    }
                     
-                    var newwell = $('<div class="well"><p' + (data.html ? '' : ' style="white-space: pre-wrap;"') + '></p></div>');
-                    newwell.find('p').html(data.html || data.text);
-                    
-                    newitem.append(newwell);
-                    
-                    newitem.insertAfter('#email-header');
+                    $newitem.insertAfter('#email-header');
                 });
             });
             
