@@ -7,6 +7,13 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
         <script src="http://disposamail.net:3000/socket.io/socket.io.js"></script>
+
+        <style type="text/css">
+            .panel-headers {
+                padding-bottom: 0px;
+            }
+        </style>
+
         <script>
             $(document).ready(function() {
                 var socket =  io('http://disposamail.net:3000');
@@ -23,9 +30,23 @@
                     var $newitem = $('<div class="panel panel-primary"></div>');
                     
                     if (data.subject) {
-                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">' + data.subject + ' - From: ' + formatAddress(data.from[0]) + '</h3></div>');
+                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">' + data.subject + '</h3></div>');
                     } else {
-                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">' + formatAddress(data.from[0]) + '</h3></div>');
+                        $newitem.append('<div class="panel-heading"><h3 class="panel-title">No Subject</h3></div>');
+                    }
+
+                    var $headers = $('<div class="panel-body panel-headers"></div>');
+
+                    if (data.from && data.from.length > 0) {
+                        $headers.append('<b>From:</b> ' + formatAddress(data.from[0]) + '<br />');
+                    }
+
+                    if (data.date) {
+                        $headers.append('<b>Date:</b> ' + (new Date(Date.parse(data.date))).toLocaleString() + '<br />');
+                    }
+
+                    if ($headers.html()) {
+                        $newitem.append($headers);
                     }
                     
                     var $newcontent = $('<div class="panel-body"' + (data.html ? '' : ' style="white-space: pre-wrap;"') + '></div>');
