@@ -1,5 +1,7 @@
-var server = require('http').createServer();
-var io = require('socket.io')(server);
+var express = require('express');
+var app = express();
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
 var phonetic = require('phonetic');
 var MailParser = require("mailparser").MailParser;
 
@@ -12,6 +14,8 @@ exports.register = function () {
         plugin.cfg = plugin.config.get('disposamail_socketio.ini', {}, load_config);
     };
     load_config();
+
+    app.use(express.static(__dirname + '/web'));
 
     io.on('connection', function(socket) {
         var address = null;
@@ -31,7 +35,7 @@ exports.register = function () {
         });
     });
 
-    io.listen(3000);
+    http.listen(process.env.PORT || 3000);
 }
 
 exports.hook_rcpt = function(next, connection, params) {
