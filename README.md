@@ -4,7 +4,7 @@ Disposamail is a simple mail server that randomly generates a username and allow
 
 ## Project Location
 
-A public instance of this project is being hosted at [disposamail.net](http://disposamail.net/), and the source code primary hosted on [GitLab](https://gitlab.com/petris/disposamail). If you're browsing this source on GitHub or any other location, please visit [gitlab.com/petris/disposamail](https://gitlab.com/petris/disposamail) to get the latest copy.
+A public instance of this project is hosted at [disposamail.net](http://disposamail.net/), and the source code primary hosted on [GitLab](https://gitlab.com/petris/disposamail). If you're browsing this source on GitHub or any other location, please visit [gitlab.com/petris/disposamail](https://gitlab.com/petris/disposamail) to get the latest copy.
 
 
 ## License
